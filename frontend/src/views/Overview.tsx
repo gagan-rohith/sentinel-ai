@@ -12,7 +12,20 @@ interface Props {
   onOpenRun: (run: RunRecord) => void;
 }
 
-function Benchmark({ report }: { report: BenchmarkReport }) {
+type AgentRow = BenchmarkReport["agents"][number];
+
+function agentBars(report: BenchmarkReport, mode: string, emphasize: boolean) {
+  const order = (a: AgentRow) => (a.setting === "standard" ? 0 : 1);
+  return [...report.agents].sort((a, b) => order(a) - order(b)).map((a) => ({
+    label: `${a.setting === "standard" ? "Seen" : "Unseen"}, ${mode}`,
+    value: a.runbook_accuracy,
+    display: percent(a.runbook_accuracy, 1),
+    emphasis: emphasize && a.setting === "holdout",
+    note: `${a.cases} cases, retry rate ${percent(a.retry_rate, 1)}`,
+  }));
+}
+
+function Benchmark({ report, claude }: { report: BenchmarkReport; claude: BenchmarkReport | null }) {
   const { setup } = report;
   const retrieval = report.retrieval.map((r) => ({
     label: r.mode === "bm25" ? "BM25 keyword" : r.mode === "vector" ? "Vector" : "Hybrid (RRF)",
@@ -21,13 +34,11 @@ function Benchmark({ report }: { report: BenchmarkReport }) {
     emphasis: r.mode === "hybrid",
     note: `recall@3 ${percent(r.qa_queries.recall_at["3"] ?? 0, 1)}`,
   }));
-  const agents = report.agents.map((a) => ({
-    label: a.setting === "standard" ? "Seen categories" : "Unseen categories",
-    value: a.runbook_accuracy,
-    display: percent(a.runbook_accuracy, 1),
-    emphasis: a.setting === "holdout",
-    note: `${a.cases} cases, retry rate ${percent(a.retry_rate, 1)}`,
-  }));
+  // With a Claude report, interleave the two modes per setting so each pair compares directly.
+  const heuristic = agentBars(report, "heuristic", claude === null);
+  const agents = claude
+    ? heuristic.flatMap((bar, i) => [bar, agentBars(claude, "Claude", true)[i]].filter((b) => b !== undefined))
+    : heuristic;
 
   return (
     <section className="card">
@@ -39,6 +50,8 @@ function Benchmark({ report }: { report: BenchmarkReport }) {
         {setup.incident_cases} incidents and {setup.qa_queries} questions. Agents in{" "}
         {setup.llm_mode} mode{setup.llm_model ? ` (${setup.llm_model})` : ""}, search on{" "}
         {setup.search_backend} with {setup.embedder}, commit {setup.git_commit.slice(0, 7)}.
+        {claude &&
+          ` Claude agents: ${claude.setup.llm_model}, ${dateTime(claude.setup.started_at)}, commit ${claude.setup.git_commit.slice(0, 7)}.`}
       </p>
       <div className="charts">
         <BarList
@@ -49,7 +62,11 @@ function Benchmark({ report }: { report: BenchmarkReport }) {
         <BarList
           bars={agents}
           max={1}
-          caption="Correct runbook chosen as root cause. Unseen categories are held out of the similar-incident index."
+          caption={
+            claude
+              ? "Correct runbook chosen as root cause, heuristic agents against Claude. Unseen failure types are held out of the similar-incident index."
+              : "Correct runbook chosen as root cause. Unseen categories are held out of the similar-incident index."
+          }
         />
       </div>
     </section>
@@ -59,6 +76,7 @@ function Benchmark({ report }: { report: BenchmarkReport }) {
 export function Overview({ apiKey, health, incidents, onOpenRun }: Props) {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [report, setReport] = useState<BenchmarkReport | null>(null);
+  const [claude, setClaude] = useState<BenchmarkReport | null>(null);
   const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,6 +86,11 @@ export function Overview({ apiKey, health, incidents, onOpenRun }: Props) {
       .benchmark(apiKey)
       .then(setReport)
       .catch(() => setBenchmarkError("No benchmark report yet. Run python -m evals.benchmark."));
+    // Optional: shown alongside the baseline when a Claude benchmark exists.
+    api
+      .benchmark(apiKey, "anthropic")
+      .then(setClaude)
+      .catch(() => setClaude(null));
   }, [apiKey]);
 
   const count = (status: RunRecord["status"]) => runs.filter((r) => r.status === status).length;
@@ -158,7 +181,7 @@ export function Overview({ apiKey, health, incidents, onOpenRun }: Props) {
       </section>
 
       {report ? (
-        <Benchmark report={report} />
+        <Benchmark report={report} claude={claude} />
       ) : (
         benchmarkError && <p className="muted small">{benchmarkError}</p>
       )}

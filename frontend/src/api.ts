@@ -191,7 +191,8 @@ const liveApi = {
   },
   incidents: (key: string) => request<Incident[]>("/incidents?limit=200", key),
   recentRuns: (key: string) => request<RunRecord[]>("/agents/runs?limit=25", key),
-  benchmark: (key: string) => request<BenchmarkReport>("/evals/latest", key),
+  benchmark: (key: string, provider: "heuristic" | "anthropic" = "heuristic") =>
+    request<BenchmarkReport>(`/evals/latest?provider=${provider}`, key),
   analyze: (key: string, incidentId: string) =>
     request<RunRecord>(`/agents/analyze/${incidentId}`, key, { method: "POST" }),
   status: (key: string, runId: string) => request<RunRecord>(`/agents/status/${runId}`, key),

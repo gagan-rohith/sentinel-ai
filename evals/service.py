@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.config import Settings
 from core.exceptions import InvalidStateError
-from evals.benchmark import Provider, run_benchmark
+from evals.benchmark import Provider, reports_dir_for, run_benchmark
 from evals.report import BenchmarkReport, load_latest
 
 log = structlog.get_logger(__name__)
@@ -30,8 +30,8 @@ class EvaluationService:
         self.status = EvalStatus(state="idle")
         self._task: asyncio.Task[None] | None = None
 
-    def latest(self) -> BenchmarkReport | None:
-        return load_latest(self.reports_dir)
+    def latest(self, provider: Provider = "heuristic") -> BenchmarkReport | None:
+        return load_latest(reports_dir_for(self.reports_dir, provider))
 
     def start(self, provider: Provider, limit: int | None) -> EvalStatus:
         if self._task is not None and not self._task.done():
@@ -55,7 +55,10 @@ class EvaluationService:
     async def _run(self, provider: Provider, limit: int | None) -> None:
         try:
             await run_benchmark(
-                self.settings, provider=provider, limit=limit, out_dir=self.reports_dir
+                self.settings,
+                provider=provider,
+                limit=limit,
+                out_dir=reports_dir_for(self.reports_dir, provider),
             )
         except Exception as exc:
             # Background task: record the failure for GET /evals/status and log the traceback.

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from pydantic import BaseModel, Field
 
 from app.container import Container
@@ -21,13 +21,15 @@ class RunBody(BaseModel):
 
 @router.get("/latest", response_model=BenchmarkReport)
 async def latest(
+    provider: Provider = Query(default="heuristic", description="which agent mode's report"),
     container: Container = Depends(get_container),
     _: Principal = Depends(require(Permission.READ_REPORTS)),
 ) -> BenchmarkReport:
-    report = container.evals.latest()
+    report = container.evals.latest(provider)
     if report is None:
         raise NotFoundError(
-            "no benchmark has been run yet; POST /evals/run or python -m evals.benchmark"
+            f"no {provider} benchmark has been run yet; POST /evals/run or python -m "
+            "evals.benchmark"
         )
     return report
 

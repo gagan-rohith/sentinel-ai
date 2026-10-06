@@ -39,6 +39,11 @@ Provider = Literal["heuristic", "anthropic"]
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
 
+def reports_dir_for(base: Path, provider: "Provider") -> Path:
+    """Claude runs get their own folder, so they never replace the heuristic baseline."""
+    return base / "claude" if provider == "anthropic" else base
+
+
 def _git_commit() -> str:
     try:
         result = subprocess.run(
@@ -151,7 +156,9 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="evaluate only the first N incidents")
     parser.add_argument("--skip-retrieval", action="store_true")
     parser.add_argument("--skip-agents", action="store_true")
-    parser.add_argument("--out", type=Path, default=REPORTS_DIR)
+    parser.add_argument(
+        "--out", type=Path, help="report folder (default: evals/reports, or its claude/ subfolder)"
+    )
     args = parser.parse_args()
 
     # Per-tool-call logs would drown the summary; keep warnings and errors only.
@@ -165,7 +172,7 @@ def main() -> None:
             limit=args.limit,
             skip_retrieval=args.skip_retrieval,
             skip_agents=args.skip_agents,
-            out_dir=args.out,
+            out_dir=args.out or reports_dir_for(REPORTS_DIR, args.provider),
         )
     )
     _print_summary(report)

@@ -212,9 +212,9 @@ export const demoApi = {
       .slice(0, 25)
       .map((run) => snapshot(run));
   },
-  benchmark: async (key: string) => {
+  benchmark: async (key: string, provider: "heuristic" | "anthropic" = "heuristic") => {
     role(key);
-    return load<BenchmarkReport>("benchmark.json");
+    return load<BenchmarkReport>(provider === "anthropic" ? "benchmark-claude.json" : "benchmark.json");
   },
   analyze: async (key: string, incidentId: string) => {
     role(key);

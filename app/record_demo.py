@@ -140,7 +140,12 @@ def record_all(
         raise DemoError("search is not available; start Elasticsearch or pass --memory")
 
     incidents = _expect(client.get("/incidents?limit=200", headers=recorder.operator), 200)
-    benchmark = client.get("/evals/latest", headers=recorder.operator)
+    benchmarks = {
+        "benchmark.json": client.get("/evals/latest", headers=recorder.operator),
+        "benchmark-claude.json": client.get(
+            "/evals/latest?provider=anthropic", headers=recorder.operator
+        ),
+    }
 
     if out.exists():
         shutil.rmtree(out)
@@ -159,10 +164,16 @@ def record_all(
         **(setup or {}),
     }
     _write(out / "incidents.json", incidents)
-    if benchmark.status_code == 200:
-        _write(out / "benchmark.json", benchmark.json())
+    for name, response in benchmarks.items():
+        if response.status_code == 200:
+            _write(out / name, _benchmark_summary(response.json()))
     _write(out / "manifest.json", manifest)
     return manifest
+
+
+def _benchmark_summary(report: dict[str, Any]) -> dict[str, Any]:
+    """What the overview panel shows; per-case details stay in evals/reports."""
+    return {key: report[key] for key in ("setup", "retrieval", "agents")}
 
 
 def _write(path: Path, data: Any) -> None:
