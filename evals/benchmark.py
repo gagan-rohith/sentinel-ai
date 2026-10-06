@@ -53,7 +53,12 @@ def _llm(settings: Settings, provider: Provider) -> StructuredLLM | None:
     if provider == "heuristic":
         return None
     key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else None
-    return AnthropicLLM(settings.llm_model, api_key=key, timeout_s=settings.llm_timeout_seconds)
+    return AnthropicLLM(
+        settings.llm_model,
+        api_key=key,
+        timeout_s=settings.llm_timeout_seconds,
+        effort=settings.llm_effort,
+    )
 
 
 async def run_benchmark(

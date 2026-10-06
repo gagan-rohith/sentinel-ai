@@ -69,7 +69,7 @@ variable "elasticsearch_url" {
 variable "llm_model" {
   description = "Claude model used when ANTHROPIC_API_KEY is set in the app secret."
   type        = string
-  default     = "claude-sonnet-5"
+  default     = "claude-sonnet-5-5"
 }
 
 variable "log_retention_days" {

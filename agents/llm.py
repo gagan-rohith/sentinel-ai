@@ -1,10 +1,11 @@
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 
 import anthropic
 import structlog
+from anthropic.types import OutputConfigParam
 from langsmith import trace
 from pydantic import BaseModel, ValidationError
 
@@ -15,6 +16,7 @@ from observability.metrics import record_agent_call
 log = structlog.get_logger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
 @dataclass(frozen=True)
@@ -38,9 +40,13 @@ class AnthropicLLM:
         api_key: str | None = None,
         timeout_s: float = 60.0,
         max_tokens: int = 16000,
+        effort: Effort | None = None,
     ) -> None:
         self.model = model
         self.max_tokens = max_tokens
+        self.output_config: OutputConfigParam | anthropic.Omit = (
+            OutputConfigParam(effort=effort) if effort else anthropic.omit
+        )
         # api_key=None lets the SDK resolve credentials from the environment or a profile.
         self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout_s, max_retries=2)
 
@@ -73,6 +79,8 @@ class AnthropicLLM:
                 system=system,
                 messages=[{"role": "user", "content": prompt}],
                 output_format=schema,
+                # The SDK merges output_format into output_config alongside effort.
+                output_config=self.output_config,
             )
         except anthropic.RateLimitError as exc:
             raise LLMUnavailableError(f"rate limited by the Claude API: {exc.message}") from exc

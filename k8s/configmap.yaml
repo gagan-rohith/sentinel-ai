@@ -20,7 +20,7 @@ data:
   # The ingest Job builds the index; the API only reads it.
   AUTO_INDEX: "false"
   LLM_PROVIDER: auto
-  LLM_MODEL: claude-sonnet-5
+  LLM_MODEL: claude-sonnet-5-5
   TOOL_TIMEOUT_SECONDS: "5"
   MAX_CRITIC_RETRIES: "3"
   # The API delegates plan review to the critic service over A2A.

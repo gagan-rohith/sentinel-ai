@@ -39,7 +39,10 @@ class Settings(BaseSettings):
     # auto: Claude when ANTHROPIC_API_KEY is set, deterministic heuristics otherwise.
     llm_provider: Literal["auto", "anthropic", "heuristic"] = "auto"
     anthropic_api_key: SecretStr | None = None
-    llm_model: str = "claude-sonnet-5"
+    llm_model: str = "claude-sonnet-5-5"
+    # Thinking effort sent to Claude (low, medium, high, xhigh, max); unset uses the model's
+    # default. Lower effort means fewer thinking tokens, which are billed as output.
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
     max_critic_retries: int = Field(default=3, ge=0, le=10)
 

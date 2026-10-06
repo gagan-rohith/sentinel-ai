@@ -122,7 +122,12 @@ def create_llm(settings: Settings) -> StructuredLLM | None:
         return None
     # With llm_provider=anthropic and no key, the SDK resolves credentials itself
     # (for example an `ant auth login` profile).
-    return AnthropicLLM(settings.llm_model, api_key=key, timeout_s=settings.llm_timeout_seconds)
+    return AnthropicLLM(
+        settings.llm_model,
+        api_key=key,
+        timeout_s=settings.llm_timeout_seconds,
+        effort=settings.llm_effort,
+    )
 
 
 async def _ensure_indexed(
