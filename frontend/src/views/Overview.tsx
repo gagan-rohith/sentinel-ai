@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { api, type BenchmarkReport, type Incident, type RunRecord } from "../api";
+import { api, DEMO, type BenchmarkReport, type Incident, type RunRecord } from "../api";
 import { dateTime, percent, relativeTime } from "../format";
 import { BarList, StatTile, StatusBadge } from "../components/ui";
+import { HowItWorks } from "../demo/HowItWorks";
 
 interface Props {
   apiKey: string;
@@ -161,6 +162,8 @@ export function Overview({ apiKey, health, incidents, onOpenRun }: Props) {
       ) : (
         benchmarkError && <p className="muted small">{benchmarkError}</p>
       )}
+
+      {DEMO && <HowItWorks />}
     </div>
   );
 }

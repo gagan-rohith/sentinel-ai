@@ -1,8 +1,13 @@
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
+from app.config import Settings
+from app.demo import DemoError
+from app.main import create_app
 from app.record_demo import ADMIN, COMMENT, Recorder, record_all, stage_sequence
 from core.enums import Role
 from tests.conftest import DEMO_INCIDENT_ID, KEYS
@@ -49,3 +54,18 @@ def test_record_all_writes_every_incident(client: TestClient, tmp_path: Path) ->
     runs = list((tmp_path / "demo" / "runs").glob("*.json"))
     assert manifest["incidents"] == len(incidents) == len(runs)
     assert DEMO_INCIDENT_ID in manifest["needs_approval"]
+
+
+def test_recording_refuses_runs_the_critic_did_not_review(settings: Settings) -> None:
+    unreachable = settings.model_copy(
+        update={
+            "critic_mode": "a2a",
+            "critic_url": "http://127.0.0.1:9",
+            "critic_api_key": SecretStr("sk_sentinel_unused"),
+            "critic_timeout_seconds": 1.0,
+        }
+    )
+    with TestClient(create_app(unreachable)) as client:
+        recorder = Recorder(client, RECORDER_KEYS)
+        with pytest.raises(DemoError, match="critic was unavailable"):
+            recorder.record("INC-1003")

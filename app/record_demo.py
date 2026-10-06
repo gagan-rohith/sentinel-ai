@@ -75,7 +75,12 @@ class Recorder:
 
     def _report(self, run_id: str) -> dict[str, Any]:
         response = self.client.get(f"/agents/{run_id}/report", headers=self.operator)
-        return dict(_expect(response, 200))
+        report = dict(_expect(response, 200))
+        # A recording must show a real review, never the fallback for an unreachable critic.
+        review = report.get("critic_review") or {}
+        if any(issue.startswith("critic unavailable") for issue in review.get("issues", [])):
+            raise DemoError(f"the critic was unavailable during {run_id}: {review['issues'][0]}")
+        return report
 
     def _decide(self, run_id: str, approve: bool) -> dict[str, Any]:
         if approve:
@@ -123,7 +128,12 @@ class Recorder:
         return recording
 
 
-def record_all(client: TestClient, keys: dict[str, str], out: Path) -> dict[str, Any]:
+def record_all(
+    client: TestClient,
+    keys: dict[str, str],
+    out: Path,
+    setup: dict[str, str] | None = None,
+) -> dict[str, Any]:
     recorder = Recorder(client, keys)
     health = _expect(client.get("/health"), 200)
     if health["checks"].get("search") != "ok":
@@ -146,6 +156,7 @@ def record_all(client: TestClient, keys: dict[str, str], out: Path) -> dict[str,
         "recorded_at": datetime.now(UTC).isoformat(),
         "incidents": len(incidents),
         "needs_approval": paused,
+        **(setup or {}),
     }
     _write(out / "incidents.json", incidents)
     if benchmark.status_code == 200:
@@ -169,13 +180,18 @@ def main(argv: list[str] | None = None) -> int:
         settings = demo_settings(Path(tmp), args.memory, keys)
         try:
             with TestClient(create_app(settings)) as client:
-                manifest = record_all(client, keys, args.out)
+                setup: dict[str, str] = {
+                    "critic_mode": settings.critic_mode,
+                    "search_backend": settings.search_backend,
+                }
+                manifest = record_all(client, keys, args.out, setup)
         except DemoError as exc:
             print(f"recording failed: {exc}", file=sys.stderr)
             return 1
     print(
         f"recorded {manifest['incidents']} incidents "
-        f"({len(manifest['needs_approval'])} pause for approval) to {args.out}"
+        f"({len(manifest['needs_approval'])} pause for approval, critic "
+        f"{manifest['critic_mode']}, search {manifest['search_backend']}) to {args.out}"
     )
     return 0
 

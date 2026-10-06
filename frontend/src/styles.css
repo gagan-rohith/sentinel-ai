@@ -210,6 +210,20 @@ code {
   color: var(--accent-ink);
 }
 
+.how-it-works ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.how-it-works li {
+  padding: 3px 0;
+}
+
+.how-it-works a {
+  margin-right: 10px;
+  color: var(--accent);
+}
+
 .demo-banner p {
   margin: 0;
 }

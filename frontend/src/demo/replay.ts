@@ -184,6 +184,17 @@ function decide(run: DemoRun, decision: "approved" | "rejected", comment: string
   return snapshot(run);
 }
 
+export interface DemoManifest {
+  recorded_at: string;
+  incidents: number;
+  critic_mode?: "local" | "a2a";
+  search_backend?: string;
+}
+
+export function demoManifest(): Promise<DemoManifest> {
+  return load<DemoManifest>("manifest.json");
+}
+
 export const demoApi = {
   health: async (): Promise<{ status: string; checks: Record<string, string> }> => ({
     status: "replay",
